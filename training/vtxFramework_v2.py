@@ -3,7 +3,9 @@ Usage:       ------
 Description: -----
 """
 import sys
-sys.path.append("/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML")
+
+BASE_PROJECT_DIR = "/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML"
+sys.path.append(BASE_PROJECT_DIR)
 
 import numpy as np
 from sklearn.metrics import confusion_matrix
@@ -11,9 +13,9 @@ from sklearn.metrics import roc_auc_score
 
 
 
-import ParT_modified as ParT
+import networks.ParT_modified as ParT
 import user_scripts.preprocess as preprocess
-from vtxLevelDataset3 import ModifiedUprootIterator
+from utils.vtxLevelDataset3 import ModifiedUprootIterator
 
 import matplotlib.pyplot as plt
 
@@ -31,6 +33,8 @@ import gc
 import math
 import warnings
 import os
+
+from pathlib import Path
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -97,8 +101,7 @@ valDict = {
 
 branchDict = {}
 branchDict['ev'] = ['MET_phi',
-                    'nSDVSecVtx', 
-#                     'Jet_phi', 'Jet_pt', 'Jet_eta'
+                    'nSDVSecVtx',
                     ]
 
 branchDict['sv'] = ['SDVSecVtx_pt', 
@@ -188,13 +191,13 @@ param = {
     "input_svdim":   11,
     "num_classes":    2,
     "pair_input_dim": 4,
-    "embed_dims": [128, 512, 128],
+    "embed_dims": [128, 128, 128],
     "pair_embed_dims": [64, 64, 64],
     "for_inference": False,
     "lr": 4e-4,
     "class_weights": [1, 3],                # [bkg, sig]
     "init_step_size": step_size,
-    "block_params": {'dropout': 0.25, 'attn_dropout': 0.25, 'activation_dropout': 0.25}
+    "block_params": {'dropout': 0.2, 'attn_dropout': 0.2, 'activation_dropout': 0.2}
 }
 
 # Log
@@ -202,12 +205,15 @@ param = {
 use_neptune=True
 
 if use_neptune:
+    # Set the environment variable for neptune
+    api_token = Path(BASE_PROJECT_DIR).joinpath("neptune_key/api_token.txt").read_text().strip()
+    os.environ["NEPTUNE_API_TOKEN"] = api_token 
+
     run = neptune.init_run(
         project="alikaan.guven/ParT",
-        api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJhNDNjMWJhNS0wMDExLTQ2NzYtOWVjNS1lNzAzOWU4Mzc0MGMifQ==",
-        source_files=['/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML/training/vtxFramework_v2.py',
-                      '/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML/user_scripts/preprocess.py']
-    )  # your credentials
+        source_files=[os.path.join(BASE_PROJECT_DIR, 'training/vtxFramework_v2.py'),
+                      os.path.join(BASE_PROJECT_DIR, 'user_scripts/preprocess.py')]
+    )
 
 
 if use_neptune:
