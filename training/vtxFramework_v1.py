@@ -1,32 +1,38 @@
-import datetime
-import warnings
-import random
-import glob
-import gc
+"""
+Usage:       ------
+Description: -----
+"""
+import sys
+sys.path.append("..")
 
-import math
 import numpy as np
-import awkward as ak
-import uproot
 from sklearn.metrics import confusion_matrix
-from numba import jit, njit
 
-import torch
-import torch.nn as nn
-import neptune
-from neptune.utils import stringify_unsupported
+
 
 import ParT_modified as ParT
 from vtxLevelDataset2 import ModifiedUprootIterator
 
 import matplotlib.pyplot as plt
 
+import torch
+import torch.nn as nn
+from torch.optim.lr_scheduler import StepLR
+
+import neptune
+from neptune.utils import stringify_unsupported
+
+import datetime
+import glob
+import gc
+import math
+import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
 print('CPU count: ', torch.multiprocessing.cpu_count())
-torch.set_num_threads(10)
+# torch.set_num_threads(10)
 # torch.set_num_threads(torch.multiprocessing.cpu_count())
 
 def significance(s,b,b_err):
@@ -42,11 +48,12 @@ def significance(s,b,b_err):
 
 
 
-MLDATADIR = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/MC2018/all/'
+# MLDATADIR = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/MC2018/all/'
+MLDATADIR = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/run2/'
 tmpSigList = glob.glob(f'{MLDATADIR}/stop*/**/*.root', recursive=True)
 tmpSigList = [sig + ':Events' for sig in tmpSigList]
-maxTrain = round(len(tmpSigList)*0.70)
-maxVal   = round(len(tmpSigList)*1.00)
+maxTrain = round(len(tmpSigList)*0.10) # 0.70
+maxVal   = round(len(tmpSigList)*0.20) # 1.00
 
 trainSigList = tmpSigList[:maxTrain]
 valSigList   = tmpSigList[maxTrain:maxVal]
@@ -100,20 +107,32 @@ branchDict['sv'] = ['SDVSecVtx_pt',
                     'SDVSecVtx_LxySig', 
                     'SDVSecVtx_L_phi', 
                     'SDVSecVtx_L_eta', 
-                    'SDVIdxLUT_SecVtxIdx', 
-                    'SDVIdxLUT_TrackIdx']
+                    ]
 
 branchDict['tk'] = ['SDVTrack_pt', 'SDVTrack_ptError', 
                     'SDVTrack_eta', 'SDVTrack_etaError',
+                    'SDVTrack_phi', 'SDVTrack_phiError',
                     'SDVTrack_dxy', 'SDVTrack_dxyError', 
                     'SDVTrack_dz', 'SDVTrack_dzError',
-                    'SDVTrack_normalizedChi2', 'SDVTrack_eta', 'SDVTrack_phi']
+                    'SDVTrack_normalizedChi2'
+                    ]
+
+branchDict['lut'] = ['SDVIdxLUT_SecVtxIdx', 
+                     'SDVIdxLUT_TrackIdx',
+                     'SDVIdxLUT_TrackWeight'
+                     ]
+
+
 branchDict['label'] = ['SDVSecVtx_matchedLLPnDau_bydau']
 
 
 shuffle = True
 nWorkers = 2
-step_size = 150
+base_step_size = 150 + 25
+if torch.cuda.device_count():
+    step_size = base_step_size * torch.cuda.device_count()
+else:
+    step_size = base_step_size
 
 trainDataset = ModifiedUprootIterator(trainDict, branchDict, shuffle=shuffle, nWorkers=nWorkers, step_size=step_size)
 trainLoader = torch.utils.data.DataLoader(trainDataset, num_workers=nWorkers, prefetch_factor=1, persistent_workers= True)
@@ -127,18 +146,19 @@ valLoader = torch.utils.data.DataLoader(valDataset, num_workers=nWorkers, prefet
 # Training related 
 ########################################################################
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device(f'cuda' if torch.cuda.is_available() else 'cpu')
 
 param = {
-    "input_dim":     10,
-    "input_svdim":   12,
+    "input_dim":     11,
+    "input_svdim":   10,
     "num_classes":    2,
     "pair_input_dim": 4,
     "embed_dims": [128, 512, 128],
     "pair_embed_dims": [64, 64, 64],
     "for_inference": False,
-    "lr": 1e-3,
-    "class_weights": [1, 1], # [bkg, sig]
+    "lr": 8e-4,
+    "class_weights": [1, 3],                # [bkg, sig]
+    "init_step_size": step_size,
 }
 
 # Logging
@@ -164,9 +184,17 @@ model = ParT.ParticleTransformerDVTagger(input_dim=param['input_dim'],
                                          num_classes=param['num_classes'],
                                          pair_input_dim=param['pair_input_dim'],
                                          embed_dims=param['embed_dims'],
-                                         for_inference=param['for_inference']).to(device, dtype=float)
+                                         for_inference=param['for_inference'])
+
+if torch.cuda.device_count() > 1:
+    print("Using ", torch.cuda.device_count(), "GPUs!")
+    model = nn.DataParallel(model)
+model.to(device, dtype=float)
+
 
 optimizer = torch.optim.Adam(model.parameters(), lr=param['lr'])
+
+scheduler = StepLR(optimizer, step_size=3, gamma=0.75)
 criterion = nn.CrossEntropyLoss(reduction='none')
 
 
@@ -210,18 +238,13 @@ for epoch in range(epochs):
                                       X['SDVTrack_pz'],
                                       X['SDVTrack_E']), dim=0).permute(1,0,2)
 
-        # print("X['SDVTrack_px'].shape: ",X['SDVTrack_px'].shape)
-        # print("tk_pair_features.shape: ",tk_pair_features.shape)
-    
-        tk_features = torch.cat((X['SDVTrack_pt'],
-                                 X['SDVTrack_ptError'],
-                                 X['SDVTrack_eta'],
-                                 X['SDVTrack_etaError'],
-                                 X['SDVTrack_dxy'],
-                                 X['SDVTrack_dxyError'],
-                                 X['SDVTrack_dz'],
-                                 X['SDVTrack_dzError'],
+
+        tk_features = torch.cat((X['SDVTrack_pt'],  X['SDVTrack_ptError'],
+                                 X['SDVTrack_eta'], X['SDVTrack_etaError'],
+                                 X['SDVTrack_dxy'], X['SDVTrack_dxyError'],
+                                 X['SDVTrack_dz'],  X['SDVTrack_dzError'],
                                  X['SDVTrack_normalizedChi2'],
+                                 X['SDVIdxLUT_TrackWeight'],
                                  torch.cos(X['MET_phi'][...,np.newaxis] - X['SDVTrack_phi'])), dim=0).permute(1,0,2)
         
         sv_features = torch.cat((X['SDVSecVtx_pt'],
@@ -229,15 +252,21 @@ for epoch in range(epochs):
                                  X['SDVSecVtx_LxySig'],
                                  X['SDVSecVtx_pAngle'],
                                  X['SDVSecVtx_charge'],
-                                 X['SDVSecVtx_ndof'],
-                                 X['SDVSecVtx_chi2'],
-                                 X['SDVSecVtx_tracksSize'],
-                                 X['SDVSecVtx_sum_tkW'],
+                                 X['SDVSecVtx_chi2'] / X['SDVSecVtx_ndof'],
+                                 X['SDVSecVtx_sum_tkW'] / X['SDVSecVtx_tracksSize'],
                                  torch.cos(X["MET_phi"] - X["SDVSecVtx_L_phi"]),
                                  torch.cos(X["Jet_phi"] - X["SDVSecVtx_L_phi"]),
-                                 torch.cos(X["Jet_eta"] - X["SDVSecVtx_L_eta"])), dim=0).permute(1,0)[..., np.newaxis]
-    
-       
+                                 torch.abs(X["Jet_eta"] - X["SDVSecVtx_L_eta"]),
+                                 ), dim=0).permute(1,0)[..., np.newaxis]
+        
+        torch.nan_to_num(tk_pair_features, nan=-999., out=tk_pair_features)
+        torch.nan_to_num(tk_features,      nan=-999., out=tk_features)
+        torch.nan_to_num(sv_features,      nan=-999., out=sv_features)
+
+        # print(tk_features.shape)
+        # print(tk_features)
+
+
         label = X['SDVSecVtx_matchedLLPnDau_bydau'].permute(1,0)
         y = label[:,0]
                 
@@ -354,42 +383,44 @@ for epoch in range(epochs):
     TN_epoch = 0
     output_bucket = []
     label_bucket = []
+    print("Before eval")
     model.eval()
+    print("After eval")
     with torch.no_grad():
+        print("torch.no_grad()")
         for batch_num, X in enumerate(valLoader):
             if batch_num == 0:
                 print('Started batch processes. [validation]')
                 
             tk_pair_features = torch.cat((X['SDVTrack_px'],
-                                          X['SDVTrack_py'],
-                                          X['SDVTrack_pz'],
-                                          X['SDVTrack_E']), dim=0).permute(1,0,2)
+                                      X['SDVTrack_py'],
+                                      X['SDVTrack_pz'],
+                                      X['SDVTrack_E']), dim=0).permute(1,0,2)
 
-    
-            tk_features = torch.cat((X['SDVTrack_pt'],
-                                     X['SDVTrack_ptError'],
-                                     X['SDVTrack_eta'],
-                                     X['SDVTrack_etaError'],
-                                     X['SDVTrack_dxy'],
-                                     X['SDVTrack_dxyError'],
-                                     X['SDVTrack_dz'],
-                                     X['SDVTrack_dzError'],
-                                     X['SDVTrack_normalizedChi2'],
-                                     torch.cos(X['MET_phi'][...,np.newaxis] - X['SDVTrack_phi'])), dim=0).permute(1,0,2)
 
+            tk_features = torch.cat((X['SDVTrack_pt'],  X['SDVTrack_ptError'],
+                                    X['SDVTrack_eta'], X['SDVTrack_etaError'],
+                                    X['SDVTrack_dxy'], X['SDVTrack_dxyError'],
+                                    X['SDVTrack_dz'],  X['SDVTrack_dzError'],
+                                    X['SDVTrack_normalizedChi2'],
+                                    X['SDVIdxLUT_TrackWeight'],
+                                    torch.cos(X['MET_phi'][...,np.newaxis] - X['SDVTrack_phi'])), dim=0).permute(1,0,2)
+            
             sv_features = torch.cat((X['SDVSecVtx_pt'],
-                                     X['SDVSecVtx_L_eta'],
-                                     X['SDVSecVtx_Lxy'],
-                                     X['SDVSecVtx_LxySig'],
-                                     X['SDVSecVtx_pAngle'],
-                                     X['SDVSecVtx_charge'],
-                                     X['SDVSecVtx_ndof'],
-                                     X['SDVSecVtx_chi2'],
-                                     X['SDVSecVtx_tracksSize'],
-                                     X['SDVSecVtx_sum_tkW'],
-                                     torch.cos(X["MET_phi"] - X["SDVSecVtx_L_phi"]),
-                                     torch.cos(X["Jet_phi"] - X["SDVSecVtx_L_phi"]),
-                                     torch.cos(X["Jet_eta"] - X["SDVSecVtx_L_eta"])), dim=0).permute(1,0)[..., np.newaxis]
+                                    X['SDVSecVtx_L_eta'],
+                                    X['SDVSecVtx_LxySig'],
+                                    X['SDVSecVtx_pAngle'],
+                                    X['SDVSecVtx_charge'],
+                                    X['SDVSecVtx_chi2'] / X['SDVSecVtx_ndof'],
+                                    X['SDVSecVtx_sum_tkW'] / X['SDVSecVtx_tracksSize'],
+                                    torch.cos(X["MET_phi"] - X["SDVSecVtx_L_phi"]),
+                                    torch.cos(X["Jet_phi"] - X["SDVSecVtx_L_phi"]),
+                                    torch.abs(X["Jet_eta"] - X["SDVSecVtx_L_eta"]),
+                                    ), dim=0).permute(1,0)[..., np.newaxis]
+            
+            torch.nan_to_num(tk_pair_features, nan=-999., out=tk_pair_features)
+            torch.nan_to_num(tk_features,      nan=-999., out=tk_features)
+            torch.nan_to_num(sv_features,      nan=-999., out=sv_features)
 
 
             label = X['SDVSecVtx_matchedLLPnDau_bydau'].permute(1,0)
@@ -447,8 +478,8 @@ for epoch in range(epochs):
                 PPV = TP / (TP+FP) if (TP+FP) != 0 else 0
 
                 if use_neptune:
-                    run["train/TPR"].append(TPR) # if math.isfinite(TPR) else 0.
-                    run["train/PPV"].append(PPV) # if math.isfinite(PPV) else 0.
+                    run["val/TPR"].append(TPR) # if math.isfinite(TPR) else 0.
+                    run["val/PPV"].append(PPV) # if math.isfinite(PPV) else 0.
                 else:
                     print('batch_num: ', batch_num)
                     print('Class imbalance: ', [1, round((torch.sum(y.data[:,-1] == 0) / torch.sum(y.data[:,-1] == 1)).item(),2)])
@@ -501,7 +532,7 @@ for epoch in range(epochs):
                 savename = run["sys/id"].fetch() + 'best_val_epoch.pt'
             else:
                 savename = 'ParT_modified' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + 'best_val_epoch.pt'
-            torch.save(model.state_dict(), '/users/alikaan.gueven/ParticleTransformer/PyTorchExercises/models/vtx_' + savename)
+            # torch.save(model.state_dict(), '/users/alikaan.gueven/ParticleTransformer/PyTorchExercises/models/vtx_' + savename)
             torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + savename)
         
         if use_neptune:

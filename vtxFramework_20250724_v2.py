@@ -20,13 +20,13 @@ import ParT_modified as ParT
 from vtxLevelDataset2 import ModifiedUprootIterator
 
 import matplotlib.pyplot as plt
-
+from torch.optim.lr_scheduler import StepLR
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
 print('CPU count: ', torch.multiprocessing.cpu_count())
-torch.set_num_threads(10)
+# torch.set_num_threads(10)
 # torch.set_num_threads(torch.multiprocessing.cpu_count())
 
 def significance(s,b,b_err):
@@ -45,8 +45,8 @@ def significance(s,b,b_err):
 MLDATADIR = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/MC2018/all/'
 tmpSigList = glob.glob(f'{MLDATADIR}/stop*/**/*.root', recursive=True)
 tmpSigList = [sig + ':Events' for sig in tmpSigList]
-maxTrain = round(len(tmpSigList)*0.70)
-maxVal   = round(len(tmpSigList)*1.00)
+maxTrain = round(len(tmpSigList)*0.70) # 0.70
+maxVal   = round(len(tmpSigList)*1.00) # 1.00
 
 trainSigList = tmpSigList[:maxTrain]
 valSigList   = tmpSigList[maxTrain:maxVal]
@@ -113,7 +113,11 @@ branchDict['label'] = ['SDVSecVtx_matchedLLPnDau_bydau']
 
 shuffle = True
 nWorkers = 2
-step_size = 150
+base_step_size = 150 + 25
+if torch.cuda.device_count():
+    step_size = base_step_size * torch.cuda.device_count()
+else:
+    step_size = base_step_size
 
 trainDataset = ModifiedUprootIterator(trainDict, branchDict, shuffle=shuffle, nWorkers=nWorkers, step_size=step_size)
 trainLoader = torch.utils.data.DataLoader(trainDataset, num_workers=nWorkers, prefetch_factor=1, persistent_workers= True)
@@ -127,7 +131,9 @@ valLoader = torch.utils.data.DataLoader(valDataset, num_workers=nWorkers, prefet
 # Training related 
 ########################################################################
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+gpus = (0,1,2,3)
+
+device = torch.device(f'cuda' if torch.cuda.is_available() else 'cpu')
 
 param = {
     "input_dim":     10,
@@ -137,8 +143,9 @@ param = {
     "embed_dims": [128, 512, 128],
     "pair_embed_dims": [64, 64, 64],
     "for_inference": False,
-    "lr": 1e-3,
-    "class_weights": [1, 1], # [bkg, sig]
+    "lr": 8e-4,
+    "class_weights": [1, 3],                # [bkg, sig]
+    "init_step_size": step_size,
 }
 
 # Logging
@@ -164,9 +171,17 @@ model = ParT.ParticleTransformerDVTagger(input_dim=param['input_dim'],
                                          num_classes=param['num_classes'],
                                          pair_input_dim=param['pair_input_dim'],
                                          embed_dims=param['embed_dims'],
-                                         for_inference=param['for_inference']).to(device, dtype=float)
+                                         for_inference=param['for_inference'])
+
+if torch.cuda.device_count() > 1:
+    print("Using ", torch.cuda.device_count(), "GPUs!")
+    model = nn.DataParallel(model)
+model.to(device, dtype=float)
+
 
 optimizer = torch.optim.Adam(model.parameters(), lr=param['lr'])
+
+scheduler = StepLR(optimizer, step_size=3, gamma=0.75)
 criterion = nn.CrossEntropyLoss(reduction='none')
 
 
@@ -354,8 +369,11 @@ for epoch in range(epochs):
     TN_epoch = 0
     output_bucket = []
     label_bucket = []
+    print("Before eval")
     model.eval()
+    print("After eval")
     with torch.no_grad():
+        print("torch.no_grad()")
         for batch_num, X in enumerate(valLoader):
             if batch_num == 0:
                 print('Started batch processes. [validation]')
@@ -379,7 +397,6 @@ for epoch in range(epochs):
 
             sv_features = torch.cat((X['SDVSecVtx_pt'],
                                      X['SDVSecVtx_L_eta'],
-                                     X['SDVSecVtx_Lxy'],
                                      X['SDVSecVtx_LxySig'],
                                      X['SDVSecVtx_pAngle'],
                                      X['SDVSecVtx_charge'],
@@ -447,8 +464,8 @@ for epoch in range(epochs):
                 PPV = TP / (TP+FP) if (TP+FP) != 0 else 0
 
                 if use_neptune:
-                    run["train/TPR"].append(TPR) # if math.isfinite(TPR) else 0.
-                    run["train/PPV"].append(PPV) # if math.isfinite(PPV) else 0.
+                    run["val/TPR"].append(TPR) # if math.isfinite(TPR) else 0.
+                    run["val/PPV"].append(PPV) # if math.isfinite(PPV) else 0.
                 else:
                     print('batch_num: ', batch_num)
                     print('Class imbalance: ', [1, round((torch.sum(y.data[:,-1] == 0) / torch.sum(y.data[:,-1] == 1)).item(),2)])

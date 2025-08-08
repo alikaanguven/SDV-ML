@@ -157,8 +157,7 @@ class ModifiedUprootIterator(torch.utils.data.IterableDataset):
         if self.shuffle:
             self.x = self._shuffle_akArr(self.x)
         self._add_four_vector_branches()
-        
-        return self._prepare_output()
+        return self.x
 
 
     def _shuffle_akArr(self, x):
@@ -179,118 +178,9 @@ class ModifiedUprootIterator(torch.utils.data.IterableDataset):
             self.x['SDVTrack_py'] = py
             self.x['SDVTrack_pz'] = pz
 
-
-    def _prepare_output(self):
-        return pad_and_fill(self.x, self.branches, svDim=12, tkDim=10, fillValue=float("nan"))
-
-
 def ptetaphim_to_epxpypz(pt, eta, phi, m=0.13957):
     px = pt * np.cos(phi)
     py = pt * np.sin(phi)
     pz = pt * np.sinh(eta)
     E = np.sqrt(px*px + py*py + pz*pz + m*m)
     return (E, px, py, pz)
-
-
-def pad_and_fill(X, branchDict, svDim=12, tkDim=10, fillValue=float("nan")):
-    def process_field(field, broadcast_to=None):
-        ak_arr = X[field]
-        if broadcast_to == 'sv':
-            # Broadcast to any sv branch shape
-            ak_arr, _ = ak.broadcast_arrays(ak_arr, X[branchDict['sv'][0]])
-        else:
-            pass
-        flat = ak.flatten(ak_arr, axis=1)
-        X_np = flat.to_numpy()
-        return torch.tensor(X_np)
-
-    X_dict = {}
-    for field in X.fields:
-        if branchDict['ev'] and field in branchDict['ev']:
-            if field.startswith('n'):
-                X[field] = ak.values_astype(X[field], np.int32)
-            elif field.startswith('Jet'):
-                X[field] = X[field][:, 0]
-            
-            X_dict[field] = process_field(field, broadcast_to='sv')
-        
-        elif branchDict['sv'] and field in branchDict['sv']:
-            X_dict[field] = process_field(field)
-        elif branchDict['label'] and field in branchDict['label']:
-            X_dict[field] = process_field(field)
-        elif branchDict['lut'] and field == "SDVIdxLUT_TrackWeight":
-            trIdx = X.SDVIdxLUT_TrackIdx
-            svIdx = X.SDVIdxLUT_SecVtxIdx
-            n_sv =  X.nSDVSecVtx
-            
-            builder = ak.ArrayBuilder()
-            deepTable_weight(X[field], svIdx, n_sv, builder)
-            deepX = builder.snapshot()
-
-            almost_flat = ak.flatten(deepX, axis=1)
-            padded = ak.pad_none(almost_flat, target=tkDim, clip=True, axis=1)
-            filled = ak.fill_none(padded, 0., axis=1)
-
-            X_np = filled.to_numpy()
-            X_dict[field] = torch.tensor(X_np)
-        elif branchDict['tk'] and field in branchDict['tk']:
-            trIdx = X.SDVIdxLUT_TrackIdx
-            svIdx = X.SDVIdxLUT_SecVtxIdx
-            n_sv =  X.nSDVSecVtx
-            
-            builder = ak.ArrayBuilder()
-            deepTable(X[field], trIdx, svIdx, n_sv, builder)
-            deepX = builder.snapshot()
-            # print(deepX.type)
-            # print('deepX: ', deepX)
-
-            field_fillValue = {
-                'SDVTrack_E': 1e3,
-                'SDVTrack_pz': 0
-            }.get(field, fillValue)         # Returns 'fillValue' if the 'field' does not exist.
-
-            almost_flat = ak.flatten(deepX, axis=1)
-            # print('almost_flat: ', almost_flat)
-            padded = ak.pad_none(almost_flat, target=tkDim, clip=True, axis=1)
-            filled = ak.fill_none(padded, field_fillValue, axis=1)
-
-            X_np = filled.to_numpy()
-            X_dict[field] = torch.tensor(X_np)
-
-    return X_dict
-
-
-@njit
-def deepTable(tkBranch, trIdx, svIdx, n_sv, builder):
-    """
-    Takes the track level branch and converts its shape
-    from: (nEvent * var * float32) to (nEvent * var * var * float32)
-    representing the association of each tk with sv.
-
-    svIdx: [[0, 0, 1, 1,  2, 2,  3,  3, ...], ...]
-    trIdx: [[1, 3, 3, 28, 7, 8, 10, 11, ...], ...]
-    n_sv:  [4, 0, 6, 1, 1, 7, ...]
-    """
-    # at event level depth already
-    # every element added are at event level depth
-    for ev in range(len(n_sv)):                   # 
-        builder.begin_list()                      # adding sv level depth
-        for sv in range(n_sv[ev]):                # for each vtx ... 
-            builder.begin_list()
-            for i2, col in enumerate(svIdx[ev]):  # getting an svIdx from the svIdxs for that event
-                if col == sv:                     # if the same svIdx 
-                    builder.append(tkBranch[ev][trIdx[ev][i2]])
-            builder.end_list()
-        builder.end_list()
-
-@njit
-def deepTable_weight(wgtBranch, svIdx, n_sv, builder):
-    for ev in range(len(n_sv)):
-        builder.begin_list()
-        for sv in range(n_sv[ev]):
-            builder.begin_list()
-            for i2, col in enumerate(svIdx[ev]):     # same walk through LUT
-                if col == sv:
-                    builder.append(wgtBranch[ev][i2])  # ← no trIdx here
-            builder.end_list()
-        builder.end_list()

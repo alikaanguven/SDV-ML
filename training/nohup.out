@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML/training/vtxFramework_v2.py", line 9, in <module>
+    from sklearn.metrics import confusion_matrix
+  File "/groups/hephy/cms/alikaan.gueven/conda/envs/coffea_torch2/lib/python3.11/site-packages/sklearn/__init__.py", line 84, in <module>
+    from .base import clone
+  File "/groups/hephy/cms/alikaan.gueven/conda/envs/coffea_torch2/lib/python3.11/site-packages/sklearn/base.py", line 19, in <module>
+    from .utils._estimator_html_repr import _HTMLDocumentationLinkMixin, estimator_html_repr
+  File "/groups/hephy/cms/alikaan.gueven/conda/envs/coffea_torch2/lib/python3.11/site-packages/sklearn/utils/__init__.py", line 11, in <module>
+    from ._chunking import gen_batches, gen_even_slices
+  File "/groups/hephy/cms/alikaan.gueven/conda/envs/coffea_torch2/lib/python3.11/site-packages/sklearn/utils/_chunking.py", line 8, in <module>
+    from ._param_validation import Interval, validate_params
+  File "/groups/hephy/cms/alikaan.gueven/conda/envs/coffea_torch2/lib/python3.11/site-packages/sklearn/utils/_param_validation.py", line 11, in <module>
+    from scipy.sparse import csr_matrix, issparse
+  File "/groups/hephy/cms/alikaan.gueven/conda/envs/coffea_torch2/lib/python3.11/site-packages/scipy/sparse/__init__.py", line 293, in <module>
+    from ._base import *
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 936, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1032, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1130, in get_data
+KeyboardInterrupt

@@ -1,32 +1,42 @@
-import datetime
-import warnings
-import random
-import glob
-import gc
+"""
+Usage:       ------
+Description: -----
+"""
+import sys
+sys.path.append("/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML")
 
-import math
 import numpy as np
-import awkward as ak
-import uproot
 from sklearn.metrics import confusion_matrix
-from numba import jit, njit
+from sklearn.metrics import roc_auc_score
 
-import torch
-import torch.nn as nn
-import neptune
-from neptune.utils import stringify_unsupported
+
 
 import ParT_modified as ParT
-from vtxLevelDataset2 import ModifiedUprootIterator
+import user_scripts.preprocess as preprocess
+from vtxLevelDataset3 import ModifiedUprootIterator
 
 import matplotlib.pyplot as plt
 
+import torch
+import torch.nn as nn
+from torch.optim.lr_scheduler import StepLR
+
+import neptune
+from neptune.utils import stringify_unsupported
+
+import datetime
+from functools import partial
+import glob
+import gc
+import math
+import warnings
+import os
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
 print('CPU count: ', torch.multiprocessing.cpu_count())
-torch.set_num_threads(10)
+# torch.set_num_threads(10)
 # torch.set_num_threads(torch.multiprocessing.cpu_count())
 
 def significance(s,b,b_err):
@@ -42,22 +52,23 @@ def significance(s,b,b_err):
 
 
 
-MLDATADIR = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/MC2018/all/'
+# MLDATADIR = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/MC2018/all/'
+MLDATADIR = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/run2/'
 tmpSigList = glob.glob(f'{MLDATADIR}/stop*/**/*.root', recursive=True)
 tmpSigList = [sig + ':Events' for sig in tmpSigList]
-maxTrain = round(len(tmpSigList)*0.70)
-maxVal   = round(len(tmpSigList)*1.00)
+maxTrain = round(len(tmpSigList)*0.70) # 0.70
+maxVal   = round(len(tmpSigList)*1.00) # 1.00
 
 trainSigList = tmpSigList[:maxTrain]
 valSigList   = tmpSigList[maxTrain:maxVal]
 
 # trainBkgList = glob.glob(f'{MLDATADIR}/training_set/bkg_mix*.root')
 # valBkgList = glob.glob(f'{MLDATADIR}/val_set/bkg_mix*.root')
-
+# 
 # trainBkgList = glob.glob('/scratch-cbe/users/alikaan.gueven/ML_KAAN/train/training_set/bkg_mix*.root')
 # valBkgList = glob.glob('/scratch-cbe/users/alikaan.gueven/ML_KAAN/train/val_set/bkg_mix*.root')
-
-
+# 
+# 
 # trainBkgList = [elm + ':Events' for elm in trainBkgList]
 # valBkgList = [elm + ':Events' for elm in valBkgList]
 
@@ -87,7 +98,7 @@ valDict = {
 branchDict = {}
 branchDict['ev'] = ['MET_phi',
                     'nSDVSecVtx', 
-                    'Jet_phi', 'Jet_pt', 'Jet_eta'
+#                     'Jet_phi', 'Jet_pt', 'Jet_eta'
                     ]
 
 branchDict['sv'] = ['SDVSecVtx_pt', 
@@ -100,48 +111,93 @@ branchDict['sv'] = ['SDVSecVtx_pt',
                     'SDVSecVtx_LxySig', 
                     'SDVSecVtx_L_phi', 
                     'SDVSecVtx_L_eta', 
-                    'SDVIdxLUT_SecVtxIdx', 
-                    'SDVIdxLUT_TrackIdx']
+                    ]
 
 branchDict['tk'] = ['SDVTrack_pt', 'SDVTrack_ptError', 
                     'SDVTrack_eta', 'SDVTrack_etaError',
+                    'SDVTrack_phi', 'SDVTrack_phiError',
                     'SDVTrack_dxy', 'SDVTrack_dxyError', 
                     'SDVTrack_dz', 'SDVTrack_dzError',
-                    'SDVTrack_normalizedChi2', 'SDVTrack_eta', 'SDVTrack_phi']
+                    'SDVTrack_normalizedChi2'
+                    ]
+
+branchDict['lut'] = ['SDVIdxLUT_SecVtxIdx', 
+                     'SDVIdxLUT_TrackIdx',
+                     'SDVIdxLUT_TrackWeight'
+                     ]
+
+branchDict['jet'] = ['Jet_phi', 
+                     'Jet_eta',
+                     'Jet_jetId',
+                     'Jet_pt',
+                     'Jet_chEmEF',
+                     'Jet_neEmEF',
+                     'Jet_muonIdx1',
+                     'Jet_muonIdx2'
+                     ]
+
+
+
 branchDict['label'] = ['SDVSecVtx_matchedLLPnDau_bydau']
 
 
 shuffle = True
 nWorkers = 2
-step_size = 150
+base_step_size = 400
+if torch.cuda.device_count():
+    step_size = base_step_size * torch.cuda.device_count()
+else:
+    step_size = base_step_size
 
-trainDataset = ModifiedUprootIterator(trainDict, branchDict, shuffle=shuffle, nWorkers=nWorkers, step_size=step_size)
-trainLoader = torch.utils.data.DataLoader(trainDataset, num_workers=nWorkers, prefetch_factor=1, persistent_workers= True)
+preprocess_fn = partial(preprocess.transform, branch_dict=branchDict)
+
+trainDataset = ModifiedUprootIterator(trainDict,
+                                      branchDict,
+                                      shuffle=shuffle,
+                                      nWorkers=nWorkers,
+                                      step_size=step_size)
+
+trainLoader = torch.utils.data.DataLoader(trainDataset, 
+                                          num_workers=nWorkers,
+                                          prefetch_factor=4,
+                                          persistent_workers= True,
+                                          collate_fn=preprocess_fn)
 
 
-valDataset = ModifiedUprootIterator(valDict, branchDict, shuffle=shuffle, nWorkers=nWorkers, step_size=step_size*5)
-valLoader = torch.utils.data.DataLoader(valDataset, num_workers=nWorkers, prefetch_factor=1, persistent_workers= True)
+valDataset = ModifiedUprootIterator(valDict, 
+                                    branchDict,
+                                    shuffle=shuffle,
+                                    nWorkers=nWorkers,
+                                    step_size=step_size*5)
+
+valLoader = torch.utils.data.DataLoader(valDataset,
+                                        num_workers=nWorkers,
+                                        prefetch_factor=4,
+                                        persistent_workers= True,
+                                        collate_fn=preprocess_fn)
 
 
 
 # Training related 
 ########################################################################
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device(f'cuda' if torch.cuda.is_available() else 'cpu')
 
 param = {
-    "input_dim":     10,
-    "input_svdim":   12,
+    "input_dim":     11,
+    "input_svdim":   11,
     "num_classes":    2,
     "pair_input_dim": 4,
     "embed_dims": [128, 512, 128],
     "pair_embed_dims": [64, 64, 64],
     "for_inference": False,
-    "lr": 1e-3,
-    "class_weights": [1, 1], # [bkg, sig]
+    "lr": 4e-4,
+    "class_weights": [1, 3],                # [bkg, sig]
+    "init_step_size": step_size,
+    "block_params": {'dropout': 0.25, 'attn_dropout': 0.25, 'activation_dropout': 0.25}
 }
 
-# Logging
+# Log
 ########################################################################
 use_neptune=True
 
@@ -149,6 +205,8 @@ if use_neptune:
     run = neptune.init_run(
         project="alikaan.guven/ParT",
         api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJhNDNjMWJhNS0wMDExLTQ2NzYtOWVjNS1lNzAzOWU4Mzc0MGMifQ==",
+        source_files=['/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML/training/vtxFramework_v2.py',
+                      '/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML/user_scripts/preprocess.py']
     )  # your credentials
 
 
@@ -164,9 +222,19 @@ model = ParT.ParticleTransformerDVTagger(input_dim=param['input_dim'],
                                          num_classes=param['num_classes'],
                                          pair_input_dim=param['pair_input_dim'],
                                          embed_dims=param['embed_dims'],
-                                         for_inference=param['for_inference']).to(device, dtype=float)
+                                         for_inference=param['for_inference'],
+                                         block_params=param['block_params'],
+                                         )
+
+if torch.cuda.device_count() > 1:
+    print("Using ", torch.cuda.device_count(), "GPUs!")
+    model = nn.DataParallel(model)
+model.to(device, dtype=float)
+
 
 optimizer = torch.optim.Adam(model.parameters(), lr=param['lr'])
+
+scheduler = StepLR(optimizer, step_size=4, gamma=0.75)
 criterion = nn.CrossEntropyLoss(reduction='none')
 
 
@@ -175,13 +243,15 @@ def to_categorical(y, num_classes):
     return np.eye(num_classes, dtype='uint8')[y]
 
 
-epochs = 40
+epochs = 200
 
 print('Starting train...')
-best_val_acc = 0
+best_val_acc  = 0
+best_val_loss = np.inf
 for epoch in range(epochs):
     model.train()
     print('Epoch ', epoch)
+    print(f"lr: {scheduler.get_last_lr()}")
     # Logging
     ########################################################################
     losses = []
@@ -205,41 +275,14 @@ for epoch in range(epochs):
     
         # Preprocess input
         ########################################################################
-        tk_pair_features = torch.cat((X['SDVTrack_px'],
-                                      X['SDVTrack_py'],
-                                      X['SDVTrack_pz'],
-                                      X['SDVTrack_E']), dim=0).permute(1,0,2)
+        tk_pair_features = X["tk_pair_features"]
+        tk_features      = X["tk_features"]
+        sv_features      = X["sv_features"]
 
-        # print("X['SDVTrack_px'].shape: ",X['SDVTrack_px'].shape)
-        # print("tk_pair_features.shape: ",tk_pair_features.shape)
-    
-        tk_features = torch.cat((X['SDVTrack_pt'],
-                                 X['SDVTrack_ptError'],
-                                 X['SDVTrack_eta'],
-                                 X['SDVTrack_etaError'],
-                                 X['SDVTrack_dxy'],
-                                 X['SDVTrack_dxyError'],
-                                 X['SDVTrack_dz'],
-                                 X['SDVTrack_dzError'],
-                                 X['SDVTrack_normalizedChi2'],
-                                 torch.cos(X['MET_phi'][...,np.newaxis] - X['SDVTrack_phi'])), dim=0).permute(1,0,2)
-        
-        sv_features = torch.cat((X['SDVSecVtx_pt'],
-                                 X['SDVSecVtx_L_eta'],
-                                 X['SDVSecVtx_LxySig'],
-                                 X['SDVSecVtx_pAngle'],
-                                 X['SDVSecVtx_charge'],
-                                 X['SDVSecVtx_ndof'],
-                                 X['SDVSecVtx_chi2'],
-                                 X['SDVSecVtx_tracksSize'],
-                                 X['SDVSecVtx_sum_tkW'],
-                                 torch.cos(X["MET_phi"] - X["SDVSecVtx_L_phi"]),
-                                 torch.cos(X["Jet_phi"] - X["SDVSecVtx_L_phi"]),
-                                 torch.cos(X["Jet_eta"] - X["SDVSecVtx_L_eta"])), dim=0).permute(1,0)[..., np.newaxis]
-    
-       
-        label = X['SDVSecVtx_matchedLLPnDau_bydau'].permute(1,0)
-        y = label[:,0]
+
+
+        label = X['label'].permute(1,0)
+        y = label[0,:]
                 
         
         tk_pair_features = tk_pair_features.to(device, dtype=float)
@@ -250,7 +293,7 @@ for epoch in range(epochs):
         isSignal = isSignal.to(dtype=int)
         isSignal = to_categorical(isSignal.numpy(), 2)
         y = torch.tensor(isSignal).to(device, dtype=float)  
-   
+        
         # Training related 
         ########################################################################
         output = model(x=tk_features,
@@ -263,7 +306,6 @@ for epoch in range(epochs):
         # Class inbalance is determined during training.
         # sigWeight = torch.sum(y.data[:,-1] == 0) / torch.sum(y.data[:,-1] == 1)
         # sample_weights = torch.sum((y==1) * torch.tensor([1, sigWeight]).to(device, dtype=float),axis=-1)
-
         loss = criterion(output, y)
         loss = torch.mean(sample_weights * loss)
         loss.backward()
@@ -275,11 +317,8 @@ for epoch in range(epochs):
         sigThreshold = 0.98
         y_pred01 = (output[:,-1] > sigThreshold).to('cpu', dtype=int)
         y_test01 = y.data[:,-1].to('cpu', dtype=int)
-        CM = confusion_matrix(y_test01, y_pred01)
-        TP = CM[1,1]
-        FN = CM[1,0]
-        FP = CM[0,1]
-        TN = CM[0,0]
+        CM = confusion_matrix(y_test01, y_pred01, labels=[0, 1])
+        TN, FP, FN, TP = CM.ravel()      # always works
 
         TP_epoch += TP
         FN_epoch += FN
@@ -356,56 +395,29 @@ for epoch in range(epochs):
     label_bucket = []
     model.eval()
     with torch.no_grad():
+        print("torch.no_grad()")
         for batch_num, X in enumerate(valLoader):
             if batch_num == 0:
                 print('Started batch processes. [validation]')
                 
-            tk_pair_features = torch.cat((X['SDVTrack_px'],
-                                          X['SDVTrack_py'],
-                                          X['SDVTrack_pz'],
-                                          X['SDVTrack_E']), dim=0).permute(1,0,2)
-
-    
-            tk_features = torch.cat((X['SDVTrack_pt'],
-                                     X['SDVTrack_ptError'],
-                                     X['SDVTrack_eta'],
-                                     X['SDVTrack_etaError'],
-                                     X['SDVTrack_dxy'],
-                                     X['SDVTrack_dxyError'],
-                                     X['SDVTrack_dz'],
-                                     X['SDVTrack_dzError'],
-                                     X['SDVTrack_normalizedChi2'],
-                                     torch.cos(X['MET_phi'][...,np.newaxis] - X['SDVTrack_phi'])), dim=0).permute(1,0,2)
-
-            sv_features = torch.cat((X['SDVSecVtx_pt'],
-                                     X['SDVSecVtx_L_eta'],
-                                     X['SDVSecVtx_Lxy'],
-                                     X['SDVSecVtx_LxySig'],
-                                     X['SDVSecVtx_pAngle'],
-                                     X['SDVSecVtx_charge'],
-                                     X['SDVSecVtx_ndof'],
-                                     X['SDVSecVtx_chi2'],
-                                     X['SDVSecVtx_tracksSize'],
-                                     X['SDVSecVtx_sum_tkW'],
-                                     torch.cos(X["MET_phi"] - X["SDVSecVtx_L_phi"]),
-                                     torch.cos(X["Jet_phi"] - X["SDVSecVtx_L_phi"]),
-                                     torch.cos(X["Jet_eta"] - X["SDVSecVtx_L_eta"])), dim=0).permute(1,0)[..., np.newaxis]
+            tk_pair_features = X["tk_pair_features"]
+            tk_features      = X["tk_features"]
+            sv_features      = X["sv_features"]
 
 
-            label = X['SDVSecVtx_matchedLLPnDau_bydau'].permute(1,0)
-            y = label
 
-
+            label = X['label'].permute(1,0)
+            y = label[0,:]
+                    
+            
             tk_pair_features = tk_pair_features.to(device, dtype=float)
             tk_features = tk_features.to(device, dtype=float)
             sv_features = sv_features.to(device, dtype=float)
 
-            y = y.to(device, dtype=float)
-
-            ymaxSig = torch.max(y > 1, axis=-1).values
-            ymaxSig = ymaxSig.float()
-            yBkg = (ymaxSig != 1).float()
-            y = torch.concatenate((yBkg[:, np.newaxis], ymaxSig[:, np.newaxis]), axis=-1)
+            isSignal = (y > 1) # matchedLLPnDau_bydau
+            isSignal = isSignal.to(dtype=int)
+            isSignal = to_categorical(isSignal.numpy(), 2)
+            y = torch.tensor(isSignal).to(device, dtype=float)
             output = model(x=tk_features,
                            v=tk_pair_features,
                            x_sv=sv_features)
@@ -430,11 +442,8 @@ for epoch in range(epochs):
             sigThreshold = 0.98
             y_pred01 = (output[:,-1] > sigThreshold).to('cpu', dtype=int)
             y_test01 = y.data[:,-1].to('cpu', dtype=int)
-            CM = confusion_matrix(y_test01, y_pred01)
-            TP = CM[1,1]
-            FN = CM[1,0]
-            FP = CM[0,1]
-            TN = CM[0,0]
+            CM = confusion_matrix(y_test01, y_pred01, labels=[0, 1])
+            TN, FP, FN, TP = CM.ravel()      # always works
 
             TP_epoch += TP
             FN_epoch += FN
@@ -447,11 +456,11 @@ for epoch in range(epochs):
                 PPV = TP / (TP+FP) if (TP+FP) != 0 else 0
 
                 if use_neptune:
-                    run["train/TPR"].append(TPR) # if math.isfinite(TPR) else 0.
-                    run["train/PPV"].append(PPV) # if math.isfinite(PPV) else 0.
+                    run["val/TPR"].append(TPR) # if math.isfinite(TPR) else 0.
+                    run["val/PPV"].append(PPV) # if math.isfinite(PPV) else 0.
                 else:
                     print('batch_num: ', batch_num)
-                    print('Class imbalance: ', [1, round((torch.sum(y.data[:,-1] == 0) / torch.sum(y.data[:,-1] == 1)).item(),2)])
+                    print('Class imbalance: ', [round((torch.sum(y.data[:,-1] == 0) / torch.sum(y.data[:,-1] == 1)).item(),2), 1]) # bkg/sig
                     print('#'*80)
                     print('#'*80)
                     print('TPR: ', TPR)
@@ -470,7 +479,22 @@ for epoch in range(epochs):
                 if batch_num %10 == 0:
                     print('Acc:  ', acc.item())
                     print('Loss: ', loss.item())
-        
+
+        # --- AUC ---------------------------------------------------------------
+        # true labels: 1 for signal, 0 for background
+        y_true   = torch.cat(label_bucket)[:, 1].cpu().numpy()
+
+        # probability assigned to the positive class
+        y_scores = torch.softmax(torch.cat(output_bucket), dim=1)[:, 1].cpu().numpy()
+
+        auc_epoch = roc_auc_score(y_true, y_scores)
+        # ----------------------------------------------------------------------
+
+        if use_neptune:
+            run["val/auc_epoch"].append(auc_epoch)
+        else:
+            print(f"AUC  [epoch]: {auc_epoch:.4f}")
+
             
         acc_epoch = (TP_epoch+TN_epoch) / (TP_epoch + FN_epoch + FP_epoch + TN_epoch)
         TPR_epoch = TP_epoch / (TP_epoch+FN_epoch)
@@ -494,20 +518,44 @@ for epoch in range(epochs):
             print('Acc  [epoch]: ', acc_epoch)
             print('Loss [epoch]: ', loss_epoch)
 
+
+
+        ## best val epoch save
         if acc_epoch > best_val_acc:
+            suffix = 'best_valacc_epoch.pt'
             best_val_acc = acc_epoch
             savename = None
             if use_neptune:
-                savename = run["sys/id"].fetch() + 'best_val_epoch.pt'
+                savename = run["sys/id"].fetch() + suffix
             else:
-                savename = 'ParT_modified' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + 'best_val_epoch.pt'
-            torch.save(model.state_dict(), '/users/alikaan.gueven/ParticleTransformer/PyTorchExercises/models/vtx_' + savename)
+                savename = 'ParT_modified' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + suffix
+            # torch.save(model.state_dict(), '/users/alikaan.gueven/ParticleTransformer/PyTorchExercises/models/vtx_' + savename)
             torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + savename)
         
         if use_neptune:
             torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + run["sys/id"].fetch() + '_epoch_' + str(epoch) + '.pt')
         else:
             torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + '_epoch_' + str(epoch) + '.pt')
+
+        ## min loss epoch save
+        if loss_epoch < best_val_loss:
+            suffix = 'best_valloss_epoch.pt'
+            best_val_loss = loss_epoch
+            savename = None
+            if use_neptune:
+                savename = run["sys/id"].fetch() + suffix
+            else:
+                savename = 'ParT_modified' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + suffix
+            # torch.save(model.state_dict(), '/users/alikaan.gueven/ParticleTransformer/PyTorchExercises/models/vtx_' + savename)
+            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + savename)
+        
+        if use_neptune:
+            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + run["sys/id"].fetch() + '_epoch_' + str(epoch) + '.pt')
+        else:
+            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + '_epoch_' + str(epoch) + '.pt')
+
+
+
 
 
         if use_neptune:
@@ -519,8 +567,8 @@ for epoch in range(epochs):
             binCenters0 = (binEdges0[:-1] + binEdges0[1:]) / 2
             
             plt.figure(figsize=(10,8))
-            plt.errorbar(binCenters1, binVals1, np.sqrt(binVals1), fmt='o', capthick=1, capsize=3, color='indigo', markersize=5, label="matched")
-            plt.errorbar(binCenters0, binVals0, np.sqrt(binVals0), fmt='o', capthick=1, capsize=3, color='red', markersize=5, label="unmatched")
+            plt.errorbar(binCenters1, binVals1, np.sqrt(binVals1), fmt='o', capthick=1, capsize=3, color='indigo', markersize=3, label="matched")
+            plt.errorbar(binCenters0, binVals0, np.sqrt(binVals0), fmt='o', capthick=1, capsize=3, color='red', markersize=3, label="unmatched")
             plt.ylim(1, 2*(sum(binVals1)+sum(binVals0)))
             plt.yscale('log')
             plt.title('Validation Dataset')
@@ -531,8 +579,10 @@ for epoch in range(epochs):
 
             run['score_hist'].append(neptune.types.File('hist.png'))
 
-    
+    scheduler.step()
     gc.collect() # counter memory leaks at the end of each epoch
+    if torch.cuda.device_count():
+        torch.cuda.empty_cache()      # ← releases the cached blocks
     
 if use_neptune:
     run.stop()
