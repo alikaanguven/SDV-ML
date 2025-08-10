@@ -10,8 +10,8 @@
 #SBATCH --mem-per-cpu=3G 
 #SBATCH --nodes=1-1 
 #SBATCH --partition=c
-#SBATCH --qos=c_short 
-#SBATCH --time=07:59:00 
+#SBATCH --qos=c_rapid
+#SBATCH --time=01:00:00 
 echo ----------------------------------------------- 
 echo "COMMAND: $1" 
 $1
