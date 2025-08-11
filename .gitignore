@@ -6,3 +6,4 @@ z_tmp/
 .ipynb_checkpoints/
 neptune_key/api_token.txt
 training/tb
+*.png

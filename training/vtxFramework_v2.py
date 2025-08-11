@@ -158,6 +158,7 @@ trainLoader = torch.utils.data.DataLoader(trainDataset,
                                           prefetch_factor=4,
                                           persistent_workers= True,
                                           collate_fn=preprocess_fn,
+                                          drop_last=True, 
                                           pin_memory=True)
 
 

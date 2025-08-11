@@ -184,3 +184,56 @@ def ptetaphim_to_epxpypz(pt, eta, phi, m=0.13957):
     pz = pt * np.sinh(eta)
     E = np.sqrt(px*px + py*py + pz*pz + m*m)
     return (E, px, py, pz)
+
+
+
+
+def stable_iterator(files, keys, superbatch_size=100, drop_last=False):
+    """
+    Retrieves same number of entries in each iteration for stable training.
+
+    WARNING: Set drop_last=False in prediction mode,
+             otherwise last batch will be dropped!!
+
+    Parameters
+    ----------
+    files: file paths as in uproot.iterator
+    keys: TBranch names in list
+    superbatch_size: batch_size * multiplet 
+    """
+    arrays = []
+    num_entries = 0
+    iterator = uproot.iterate(files, keys, step_size=superbatch_size, library="ak",
+                              ) 
+
+    for it in iterator:
+        it_length = it.type.length
+
+        if num_entries + it_length < superbatch_size:
+            # Batch is missing some entries, get more entries
+            arrays.append(it)
+            num_entries += it_length
+        else:
+            # If batch is ready or more than ready, handle it
+            remaining = superbatch_size - num_entries
+
+            if remaining > 0:
+                arrays.append(it[:remaining])
+                yield ak.concatenate(arrays)  # next iteration starts directly after this line.
+                arrays = [it[remaining:]]
+                num_entries = it_length - remaining
+            elif remaining == 0:
+                yield ak.concatenate(arrays)  # next iteration starts directly after this line.
+                arrays = []
+                num_entries = 0
+            else:
+                raise RuntimeError("This basically should not happen.")
+
+
+    # Sometimes last batch has only 1 element which is not enough for BatchNorm layers.
+    # They fail the training quite unexpectedly, after many epochs.
+    # Handle the last batch
+    if arrays and not drop_last:
+        yield ak.concatenate(arrays)
+    else:
+        pass # Last batch is dropped
