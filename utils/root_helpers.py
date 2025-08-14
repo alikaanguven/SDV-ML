@@ -63,11 +63,14 @@ def checkIfCorrupted(file):
     f.Close()
 
 def checkIfBranchExists(tree, branchname):
+    returnFlag=False
     for branch in tree.GetListOfBranches():
         if ( branch.GetName() == branchname ):
-            return True
+            returnFlag = True
+            break
         else:
-            return False
+            returnFlag = False
+    return returnFlag
 
 def remove_new_root_files(root_dir, dry_run=False):
     """
