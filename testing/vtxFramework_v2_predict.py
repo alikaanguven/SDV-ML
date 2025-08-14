@@ -3,6 +3,12 @@ Prediction script
 
 """
 
+import sys
+from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]  # parent of "training"
+if str(PROJECT_DIR) not in sys.path: sys.path.insert(0, str(PROJECT_DIR))
+
 import torch
 import torch.nn.functional as F
 torch.set_printoptions(precision=15)
@@ -16,7 +22,6 @@ import argparse
 import gc
 import glob
 import os
-import sys
 
 
 
@@ -103,7 +108,7 @@ preprocess_fn = partial(preprocess.transform, branch_dict=branchDict)
 shuffle = False
 nWorkers = 1
 step_size = 3000
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
 
 
 
@@ -172,8 +177,8 @@ with torch.no_grad():
 
             
             output = model(x=tk_features,
-                        v=tk_pair_features,
-                        x_sv=sv_features)
+                           v=tk_pair_features,
+                           x_sv=sv_features)
             
             logit_bucket.append(output)                     # https://arxiv.org/pdf/1503.02531
             output_softmax = torch.softmax(output, dim=1)   # multiply output by a value if you want temperature sharpening

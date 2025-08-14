@@ -41,11 +41,12 @@ import os
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 
 
-MLDATADIR = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/run2/'
+MLDATADIR = '/scratch/agueven/Ang_GNN_nano'
 tmpSigList = glob.glob(f'{MLDATADIR}/stop*/**/*.root', recursive=True)
 tmpSigList = [sig + ':Events' for sig in tmpSigList]
 
@@ -136,14 +137,13 @@ branchDict['jet'] = ['Jet_phi',
 
 branchDict['label'] = ['SDVSecVtx_matchedLLPnDau_bydau']
 
+# gpus = [2]
+gpus = [0,3]
 
 shuffle = True
 nWorkers = 4
-base_step_size = 400
-if torch.cuda.device_count():
-    step_size = base_step_size * torch.cuda.device_count()
-else:
-    step_size = base_step_size
+base_step_size = 1600
+step_size= base_step_size * len(gpus)
 
 preprocess_fn = partial(preprocess.transform, branch_dict=branchDict)
 
@@ -187,11 +187,11 @@ param = {
     "input_svdim":   11,
     "num_classes":    2,
     "pair_input_dim": 4,
-    "embed_dims": [128, 128, 128],
+    "embed_dims": [128, 512, 128],
     "pair_embed_dims": [64, 64, 64],
     "for_inference": False,
     "init_lr": 4e-4,
-    "class_weights": [1, 3],                # [bkg, sig]
+    "class_weights": [1, 1],                # [bkg, sig]
     "init_step_size": step_size,
     "block_params": {'dropout': 0.20, 'attn_dropout': 0.20, 'activation_dropout': 0.20}
 }
@@ -227,9 +227,8 @@ model = ParT.ParticleTransformerDVTagger(input_dim=param['input_dim'],
                                          )
 
 print('CPU count: ', torch.multiprocessing.cpu_count())
-if torch.cuda.device_count() > 1:
-    print("Using ", torch.cuda.device_count(), "GPUs!\n\n")
-    model = nn.DataParallel(model)
+print(f"Using GPUS {gpus}\n\n")
+model = nn.DataParallel(model, device_ids=gpus)
 
 
 model.to(device, dtype=float)
@@ -503,13 +502,13 @@ for epoch in range(num_epochs):
                 savename = run["sys/id"].fetch() + suffix
             else:
                 savename = 'ParT_modified' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + suffix
-            # torch.save(model.state_dict(), '/users/alikaan.gueven/ParticleTransformer/PyTorchExercises/models/vtx_' + savename)
-            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + savename)
+            torch.save(model.state_dict(), '/scratch/agueven/ParT_saved_state_dicts/vtx_' + savename)
+            torch.save(model, '/scratch/agueven/ParT_saved_models/vtx_' + savename)
         
         if use_neptune:
-            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + run["sys/id"].fetch() + '_epoch_' + str(epoch) + '.pt')
+            torch.save(model, '/scratch/agueven/ParT_saved_models/vtx_' + run["sys/id"].fetch() + '_epoch_' + str(epoch) + '.pt')
         else:
-            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + '_epoch_' + str(epoch) + '.pt')
+            torch.save(model, '/scratch/agueven/ParT_saved_models/vtx_' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + '_epoch_' + str(epoch) + '.pt')
 
 
         ## min loss epoch save
@@ -521,13 +520,13 @@ for epoch in range(num_epochs):
                 savename = run["sys/id"].fetch() + suffix
             else:
                 savename = 'ParT_modified' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + suffix
-            # torch.save(model.state_dict(), '/users/alikaan.gueven/ParticleTransformer/PyTorchExercises/models/vtx_' + savename)
-            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + savename)
+            torch.save(model.state_dict(), '/scratch/agueven/ParT_saved_state_dicts/vtx_' + savename)
+            torch.save(model, '/scratch/agueven/ParT_saved_models/vtx_' + savename)
         
         if use_neptune:
-            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + run["sys/id"].fetch() + '_epoch_' + str(epoch) + '.pt')
+            torch.save(model, '/scratch/agueven/ParT_saved_models/vtx_' + run["sys/id"].fetch() + '_epoch_' + str(epoch) + '.pt')
         else:
-            torch.save(model, '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + '_epoch_' + str(epoch) + '.pt')
+            torch.save(model, '/scratch/agueven/ParT_saved_models/vtx_' + datetime.datetime.now().strftime('_%Y-%m-%d-%H-%M-%S_') + '_epoch_' + str(epoch) + '.pt')
 
 
         if use_neptune:

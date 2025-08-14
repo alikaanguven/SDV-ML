@@ -1,0 +1,666 @@
+nohup: ignoring input
+Initialize iterable dataset
+nWorkers:  4
+Initialize iterable dataset
+nWorkers:  4
+[neptune] [info   ] Neptune initialized. Open in the app: https://app.neptune.ai/alikaan.guven/ParT/e/PART-415
+CPU count:  64
+Using GPUS [2]
+
+
+Total params        : 2,077,322
+  Trainable         : 2,077,322
+    • weights       : 1,561,976
+    • biases        : 18,498
+  Non-trainable     : 0
+
+Epoch  0
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+/home/agueven/SDV-ML/training/vtxFramework_v2.py:539: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
+  plt.figure(figsize=(10,8))
+Started batch processes. [validation]
+Epoch  1
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  2
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  3
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  4
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  5
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  6
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  7
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  8
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  9
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  10
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  11
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  12
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  13
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  14
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  15
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  16
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  17
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  18
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  19
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  20
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  21
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  22
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  23
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  24
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  25
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  26
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  27
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  28
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  29
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  30
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  31
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  32
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  33
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  34
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  35
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  36
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  37
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  38
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  39
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  40
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  41
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  42
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  43
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  44
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  45
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  46
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  47
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  48
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  49
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  50
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  51
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  52
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  53
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  54
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  55
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  56
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  57
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  58
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  59
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  60
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  61
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  62
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  63
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  64
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  65
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  66
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+Epoch  67
+Starting train...
+Started batch processes. [train]
+
+
+
+Entering validation phase...
+torch.no_grad()
+Started batch processes. [validation]
+[neptune] [error  ] Run PART-415 received abort signal. Exiting
+[neptune] [info   ] Shutting down background jobs, please wait a moment...
+[neptune] [info   ] Done!
+[neptune] [info   ] Waiting for the remaining 55 operations to synchronize with Neptune. Do not kill this process.
+[neptune] [info   ] All 55 operations synced, thanks for waiting!
+[neptune] [info   ] Explore the metadata in the Neptune app: https://app.neptune.ai/alikaan.guven/ParT/e/PART-415/metadata
+Traceback (most recent call last):
+  File "/home/agueven/SDV-ML/training/vtxFramework_v2.py", line 461, in <module>
+    for batch_num, X in enumerate(valLoader):
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/agueven/SDV-ML/training/vtxFramework_v2.py", line 377, in validation_step
+    if use_neptune:
+        ^^^^^^^^^^^^
+  File "/home/agueven/.conda/envs/coffea_torch2/lib/python3.12/site-packages/neptune/metadata_containers/metadata_container.py", line 117, in inner_fun
+    self._raise_if_stopped()
+  File "/home/agueven/.conda/envs/coffea_torch2/lib/python3.12/site-packages/neptune/metadata_containers/run.py", line 552, in _raise_if_stopped
+    raise InactiveRunException(label=self._sys_id)
+neptune.exceptions.InactiveRunException: 
+[95m
+----InactiveRunException----------------------------------------
+[0m
+It seems you are trying to log metadata to (or fetch it from) a run that was stopped (PART-415).
+
+Here's what you can do:
+    - Resume the run to continue logging to it:
+    https://docs-legacy.neptune.ai/logging/to_existing_object/
+    - Don't invoke `stop()` on a run that you want to access. If you want to stop monitoring only,
+    you can resume a run in read-only mode:
+    https://docs-legacy.neptune.ai/api/connection_modes/#read-only-mode
+
+You may also want to check the following docs pages:
+    - https://docs-legacy.neptune.ai/logging/to_existing_object/
+    - https://docs-legacy.neptune.ai/usage/querying_metadata/
+
+[92mNeed help?[0m-> https://docs-legacy.neptune.ai/getting_help
+

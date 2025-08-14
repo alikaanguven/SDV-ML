@@ -3,18 +3,24 @@ import re
 import json
 import os
 
+import sys
+from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]  # parent of "training"
+if str(PROJECT_DIR) not in sys.path: sys.path.insert(0, str(PROJECT_DIR))
+
 
 # Get sample names from JSON file
 # -----------------------------------
-JSON_PATH = '/users/alikaan.gueven/AngPlotter/new_CMSSW/CMSSW_13_3_0/src/SoftDisplacedVertices/Samples/json/MC_RunIISummer20UL18.json'
+JSON_PATH = '/home/agueven/SDV-ML/jsons/MLNano.json'
 with open(JSON_PATH) as f:
     x = json.load(f)
 samples = x['CustomNanoAOD']['dir'].keys()
 
 
-PREDICT_SCRIPT = '/users/alikaan.gueven/SDV-ML/ParticleTransformer/SDV-ML/testing/vtxFramework_v2_predict.py'
-MODEL_PATH     = '/groups/hephy/cms/alikaan.gueven/ParT/models/vtx_PART-412_epoch_9.pt'
-INPUT_BASEDIR  = '/scratch-cbe/users/alikaan.gueven/ML_KAAN/run2'
+PREDICT_SCRIPT = '/home/agueven/SDV-ML/testing/vtxFramework_v2_predict.py'
+MODEL_PATH     = '/scratch/agueven/ParT_saved_models/vtx_PART-419best_valloss_epoch.pt'
+INPUT_BASEDIR  = '/scratch/agueven/Ang_GNN_nano_merged/'
 job_dict = {}
 
 

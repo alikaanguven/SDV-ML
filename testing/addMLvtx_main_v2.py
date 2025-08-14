@@ -6,21 +6,13 @@ import pandas as pd
 import utils.root_helpers as root_helpers
 
 
-INPUTBASE_DIR = "/scratch-cbe/users/alikaan.gueven/ML_KAAN/run2/"
-MODEL_NAME = 'vtx_PART-353best_val_epoch'
+INPUTBASE_DIR = "/scratch/agueven/Ang_GNN_nano_merged"
+MODEL_NAME = 'vtx_PART-419best_valloss_epoch.parquet'
 
 
 run2_jsons = {
-    "bkg":  [
-        "/eos/vbc/experiments/cms/store/user/aguven/MC_RunIISummer20UL18_20241003.json",
-    #     "/eos/vbc/experiments/cms/store/user/aguven/MC_RunIISummer20UL17_20241003.json"
-        ],
-    # "data": [
-    #     "/eos/vbc/experiments/cms/store/user/aguven/Data_production_20240326.json",
-    #     "/eos/vbc/experiments/cms/store/user/aguven/Data_MET2017.json"
-    #     ],
-    "sig":  [
-        "/users/alikaan.gueven/AngPlotter/CMSSW_13_3_0/src/SoftDisplacedVertices/Samples/json/PrivateSignal_v3.json"
+    "MLNano":  [
+        "/home/agueven/SDV-ML/jsons/MLNano.json",
         ]
     }
 
